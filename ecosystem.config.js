@@ -1,23 +1,24 @@
+require('dotenv').config();
+
 module.exports = {
   apps: [
     {
-      name: 'drudge',
-      script: 'src/index.js',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '1G',
+      name: 'sec-mcp-server',
+      script: 'tsx',
+      args: 'src/index.ts',
+      watch: true,
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        SEC_API_MAIL: process.env.SEC_API_MAIL,
+        SEC_API_COMPANY: process.env.SEC_API_COMPANY,
+        PORT: process.env.PORT || 3000,
       },
-      error_file: 'logs/error.log',
-      out_file: 'logs/out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true,
-      // 设置日志轮转
-      log_rotate_interval: '0 0 * * *', // 每天午夜轮转
-      log_rotate_max_size: '10M', // 单个日志文件最大 10MB
-      log_rotate_keep: 7, // 保留 7 天的日志
+      env_production: {
+        NODE_ENV: 'production',
+        SEC_API_MAIL: process.env.SEC_API_MAIL,
+        SEC_API_COMPANY: process.env.SEC_API_COMPANY,
+        PORT: process.env.PORT || 3000,
+      },
     },
   ],
-}; 
+};
