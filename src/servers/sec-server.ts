@@ -1,6 +1,7 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import fetch from 'node-fetch';
+import { EventEmitter } from 'events';
 
 /**
  * SEC API MCP 服务器
@@ -17,12 +18,13 @@ import fetch from 'node-fetch';
  * - 需要设置 mail 头部（用于联系）
  */
 
-export class SecServer {
+export class SecServer extends EventEmitter {
   private server: McpServer;
   private readonly mail: string;
   private readonly companyName: string;
 
   constructor(config: { name: string; version: string; mail: string; companyName?: string }) {
+    super();
     this.server = new McpServer(config);
     this.mail = config.mail;
     this.companyName = config.companyName || 'Financial Research Bot';
@@ -63,6 +65,11 @@ export class SecServer {
             headers: this.getHeaders(),
           });
           const data = await response.json();
+          this.emit('resource-update', {
+            type: 'submissions',
+            cik,
+            data,
+          });
           return {
             contents: [
               {
@@ -72,6 +79,11 @@ export class SecServer {
             ],
           };
         } catch (error) {
+          this.emit('error', {
+            type: 'submissions',
+            cik,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return {
             contents: [
               {
@@ -102,6 +114,11 @@ export class SecServer {
             }
           );
           const data = await response.json();
+          this.emit('resource-update', {
+            type: 'facts',
+            cik,
+            data,
+          });
           return {
             contents: [
               {
@@ -111,6 +128,11 @@ export class SecServer {
             ],
           };
         } catch (error) {
+          this.emit('error', {
+            type: 'facts',
+            cik,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return {
             contents: [
               {
@@ -153,6 +175,13 @@ export class SecServer {
             }
           );
           const data = await response.json();
+          this.emit('tool-call', {
+            type: 'company-concept',
+            cik,
+            taxonomy,
+            tag,
+            data,
+          });
           return {
             content: [
               {
@@ -162,6 +191,13 @@ export class SecServer {
             ],
           };
         } catch (error) {
+          this.emit('error', {
+            type: 'company-concept',
+            cik,
+            taxonomy,
+            tag,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return {
             content: [
               {
@@ -198,6 +234,14 @@ export class SecServer {
             }
           );
           const data = await response.json();
+          this.emit('tool-call', {
+            type: 'xbrl-frames',
+            taxonomy,
+            tag,
+            unit,
+            period,
+            data,
+          });
           return {
             content: [
               {
@@ -207,6 +251,14 @@ export class SecServer {
             ],
           };
         } catch (error) {
+          this.emit('error', {
+            type: 'xbrl-frames',
+            taxonomy,
+            tag,
+            unit,
+            period,
+            error: error instanceof Error ? error.message : String(error),
+          });
           return {
             content: [
               {

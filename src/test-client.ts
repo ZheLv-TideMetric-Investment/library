@@ -1,17 +1,13 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { EventSource } from 'eventsource';
 
-interface ToolResponse {
-  content: Array<{
-    type: string;
-    text: string;
-  }>;
-}
-
-// 添加延迟函数
+/**
+ * 延迟函数
+ */
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// 添加重试函数
+/**
+ * 重试函数
+ */
 async function retry<T>(
   fn: () => Promise<T>,
   retries: number = 5,
@@ -27,75 +23,71 @@ async function retry<T>(
   }
 }
 
-async function testSecServer() {
-  // 创建 MCP 客户端
-  const client = new Client({
-    name: 'SEC API Test Client',
-    version: '1.0.0',
+/**
+ * 测试客户端
+ * 
+ * 用于测试 SEC API MCP 服务器的功能
+ */
+async function main() {
+  // 等待服务器启动
+  console.log('等待服务器启动...');
+  await delay(5000);
+
+  // 使用重试机制连接 SSE
+  await retry(async () => {
+    const eventSource = new EventSource('http://localhost:4000/events');
+
+    // 监听连接事件
+    eventSource.onopen = () => {
+      console.log('已连接到 SSE 服务器');
+    };
+
+    // 监听消息事件
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch (data.type) {
+        case 'connected':
+          console.log('服务器连接成功');
+          break;
+        case 'resource-update':
+          console.log('资源更新:', {
+            type: data.type,
+            cik: data.cik,
+            dataSize: JSON.stringify(data.data).length,
+          });
+          break;
+        case 'tool-call':
+          console.log('工具调用:', {
+            type: data.type,
+            ...data,
+            dataSize: JSON.stringify(data.data).length,
+          });
+          break;
+        case 'error':
+          console.error('错误:', data);
+          break;
+        default:
+          console.log('未知事件类型:', data);
+      }
+    };
+
+    // 监听错误事件
+    eventSource.onerror = (error) => {
+      console.error('SSE 连接错误:', error);
+      eventSource.close();
+      throw error; // 触发重试
+    };
+
+    // 等待一段时间后关闭连接
+    setTimeout(() => {
+      console.log('测试完成，关闭连接');
+      eventSource.close();
+      process.exit(0);
+    }, 30000); // 30 秒后关闭
   });
-
-  // 连接到服务器
-  const transport = new StdioClientTransport({
-    command: 'tsx',
-    args: ['src/index.ts'],
-  });
-
-  try {
-    // 等待服务器启动
-    console.log('等待服务器启动...');
-    await delay(5000);
-
-    // 使用重试机制连接服务器
-    await retry(async () => {
-      await client.connect(transport);
-      console.log('Connected to SEC API Server');
-    });
-
-    // 测试获取公司提交历史
-    console.log('\n测试获取公司提交历史:');
-    const submissions = await client.readResource({
-      uri: 'sec://submissions/0000320193', // Apple Inc. 的 CIK
-    });
-    console.log('公司提交历史:', submissions.contents[0].text);
-
-    // 测试获取公司 XBRL 数据
-    console.log('\n测试获取公司 XBRL 数据:');
-    const facts = await client.readResource({
-      uri: 'sec://xbrl/facts/0000320193',
-    });
-    console.log('公司 XBRL 数据:', facts.contents[0].text);
-
-    // 测试获取特定概念的 XBRL 数据
-    console.log('\n测试获取特定概念的 XBRL 数据:');
-    const concept = (await client.callTool({
-      name: 'get-company-concept',
-      arguments: {
-        cik: '0000320193',
-        taxonomy: 'us-gaap',
-        tag: 'AccountsPayableCurrent',
-      },
-    })) as ToolResponse;
-    console.log('特定概念的 XBRL 数据:', concept.content[0].text);
-
-    // 测试获取 XBRL frames 数据
-    console.log('\n测试获取 XBRL frames 数据:');
-    const frames = (await client.callTool({
-      name: 'get-xbrl-frames',
-      arguments: {
-        taxonomy: 'us-gaap',
-        tag: 'AccountsPayableCurrent',
-        unit: 'USD',
-        period: 'CY2023Q1I',
-      },
-    })) as ToolResponse;
-    console.log('XBRL frames 数据:', frames.content[0].text);
-  } catch (error) {
-    console.error('测试过程中发生错误:', error);
-  } finally {
-    // 关闭连接
-    transport.close();
-  }
 }
 
-// 运行测试
-testSecServer().catch(console.error);
+main().catch(error => {
+  console.error('测试失败:', error);
+  process.exit(1);
+});

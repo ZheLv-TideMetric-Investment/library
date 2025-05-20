@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
-import { ServerManager } from './server-manager.js';
+import { ServerManager } from './servers/server-manager.js';
 import { SecServer } from './servers/sec-server.js';
+import { HttpServer } from './http-server.js';
 
 // 加载环境变量
 config();
@@ -17,7 +18,7 @@ async function main() {
   const serverManager = new ServerManager();
 
   // 创建 SEC API 服务器
-  const secServer = new SecServer({
+  const secServer = serverManager.createSecServer({
     name: 'SEC API Server',
     version: '1.0.0',
     mail: process.env.SEC_API_MAIL!,
@@ -28,16 +29,16 @@ async function main() {
   const secMcpServer = secServer.getMcpServer();
   serverManager.setServer('sec', secMcpServer);
 
-  // 启动所有服务器
-  await serverManager.startServer('sec');
-  console.log('SEC API Server started successfully');
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`Port: ${process.env.PORT || 3000}`);
+  // 启动 HTTP 服务器
+  const port = parseInt(process.env.PORT || '4000', 10);
+  const httpServer = new HttpServer(serverManager, port);
+  httpServer.start();
+  console.log(`HTTP server listening on port ${port}`);
 
   // 处理进程退出
   process.on('SIGINT', async () => {
     console.log('Shutting down servers...');
-    await serverManager.stopServer('sec');
+    await serverManager.shutdown();
     process.exit(0);
   });
 }

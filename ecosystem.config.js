@@ -1,24 +1,30 @@
-require('dotenv').config();
-
-module.exports = {
+/** @type {import('pm2').Config} */
+export default {
   apps: [
     {
       name: 'sec-mcp-server',
-      script: 'tsx',
-      args: 'src/index.ts',
-      watch: true,
+      script: 'src/index.ts',
+      interpreter: 'node',
+      interpreter_args: '--loader tsx',
       env: {
-        NODE_ENV: process.env.NODE_ENV || 'development',
-        SEC_API_MAIL: process.env.SEC_API_MAIL,
-        SEC_API_COMPANY: process.env.SEC_API_COMPANY,
-        PORT: process.env.PORT || 3000,
-      },
-      env_production: {
         NODE_ENV: 'production',
-        SEC_API_MAIL: process.env.SEC_API_MAIL,
-        SEC_API_COMPANY: process.env.SEC_API_COMPANY,
-        PORT: process.env.PORT || 3000,
+        PORT: '4000',
       },
+      env_development: {
+        NODE_ENV: 'development',
+        PORT: '4000',
+      },
+      watch: ['src'],
+      ignore_watch: ['node_modules', 'dist'],
+      max_memory_restart: '1G',
+      exp_backoff_restart_delay: 100,
+      max_restarts: 10,
+      restart_delay: 3000,
+      error_file: 'logs/error.log',
+      out_file: 'logs/out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      log_type: 'json',
     },
   ],
 };
