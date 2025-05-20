@@ -25,7 +25,14 @@ export class SecServer extends EventEmitter {
 
   constructor(config: { name: string; version: string; mail: string; companyName?: string }) {
     super();
-    this.server = new McpServer(config);
+    this.server = new McpServer({
+      ...config,
+      capabilities: {
+        tools: true,
+        resources: true,
+        logging: true,
+      },
+    });
     this.mail = config.mail;
     this.companyName = config.companyName || 'Financial Research Bot';
     this.setupResources();
@@ -161,9 +168,25 @@ export class SecServer extends EventEmitter {
     this.server.tool(
       'get-company-concept',
       {
-        cik: z.string().describe('公司 CIK 编号（10位数字）'),
-        taxonomy: z.string().describe('分类标准（如 us-gaap）'),
-        tag: z.string().describe('XBRL 标签（如 AccountsPayableCurrent）'),
+        description: '获取公司特定概念的 XBRL 数据',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            cik: {
+              type: 'string',
+              description: '公司 CIK 编号（10位数字）',
+            },
+            taxonomy: {
+              type: 'string',
+              description: '分类标准（如 us-gaap）',
+            },
+            tag: {
+              type: 'string',
+              description: 'XBRL 标签（如 AccountsPayableCurrent）',
+            },
+          },
+          required: ['cik', 'taxonomy', 'tag'],
+        },
       },
       async ({ cik, taxonomy, tag }) => {
         try {
@@ -220,10 +243,29 @@ export class SecServer extends EventEmitter {
     this.server.tool(
       'get-xbrl-frames',
       {
-        taxonomy: z.string().describe('分类标准（如 us-gaap）'),
-        tag: z.string().describe('XBRL 标签（如 AccountsPayableCurrent）'),
-        unit: z.string().describe('单位（如 USD）'),
-        period: z.string().describe('期间（如 CY2023Q1I）'),
+        description: '获取 XBRL frames 数据',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            taxonomy: {
+              type: 'string',
+              description: '分类标准（如 us-gaap）',
+            },
+            tag: {
+              type: 'string',
+              description: 'XBRL 标签（如 AccountsPayableCurrent）',
+            },
+            unit: {
+              type: 'string',
+              description: '单位（如 USD）',
+            },
+            period: {
+              type: 'string',
+              description: '期间（如 CY2023Q1I）',
+            },
+          },
+          required: ['taxonomy', 'tag', 'unit', 'period'],
+        },
       },
       async ({ taxonomy, tag, unit, period }) => {
         try {
