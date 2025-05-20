@@ -381,8 +381,21 @@ const createServer = () => {
           };
         }
 
+        // 确保 filings 和 recent 存在且是数组
+        if (!data.filings || !Array.isArray(data.filings.recent)) {
+          console.error('Invalid response structure:', data);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '获取公司提交历史失败：响应数据结构无效',
+              },
+            ],
+          };
+        }
+
         // 处理分页
-        const submissions = data.filings?.recent || [];
+        const submissions = data.filings.recent;
         const total = submissions.length;
         const start = (page - 1) * pageSize;
         const end = start + pageSize;
@@ -399,7 +412,7 @@ const createServer = () => {
           exchanges: data.exchanges,
           filings: {
             recent: pagedSubmissions,
-            files: data.filings?.files || [],
+            files: data.filings.files || [],
           },
           pagination: {
             total,
