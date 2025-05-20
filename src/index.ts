@@ -8,6 +8,8 @@ async function main() {
   const secServer = new SecServer({
     name: 'SEC API Server',
     version: '1.0.0',
+    mail: process.env.SEC_API_MAIL || 'your-email@example.com', // 从环境变量获取邮件地址
+    companyName: process.env.SEC_API_COMPANY || 'Financial Research Bot',
   });
 
   // 将 SEC 服务器的 MCP 实例添加到管理器
