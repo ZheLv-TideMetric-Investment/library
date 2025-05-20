@@ -1,0 +1,22 @@
+{
+  "name": "sec-mcp-server",
+  "version": "1.0.0",
+  "description": "SEC API MCP Server",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx src/test-client.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "node-fetch": "^3.3.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.0.0"
+  }
+}
