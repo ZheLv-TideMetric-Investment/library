@@ -13,7 +13,8 @@
     "pm2:restart": "pm2 restart ecosystem.config.cjs",
     "pm2:delete": "pm2 delete ecosystem.config.cjs",
     "pm2:logs": "pm2 logs sec-mcp-server",
-    "pm2:monit": "pm2 monit sec-mcp-server"
+    "pm2:monit": "pm2 monit sec-mcp-server",
+    "inspect": "npx @modelcontextprotocol/inspector --config mcp.json --server sec-server"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
@@ -21,7 +22,6 @@
     "dotenv": "^16.5.0",
     "eventsource": "^4.0.0",
     "express": "^4.21.2",
-    "node-fetch": "^3.3.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
