@@ -121,6 +121,41 @@ const UNIT_ENUM = [
   'CNY-per-shares',
 ] as const;
 
+/** SEC API 响应数据类型定义 */
+interface SecSubmissionResponse {
+  cik: string;
+  entityType: string;
+  sic: string;
+  sicDescription: string;
+  name: string;
+  tickers: string[];
+  exchanges: string[];
+  filings: {
+    recent: Array<{
+      accessionNumber: string;
+      filingDate: string;
+      reportDate: string;
+      acceptanceDateTime: string;
+      act: string;
+      form: string;
+      fileNumber: string;
+      filmNumber: string;
+      items: string;
+      size: number;
+      isXBRL: number;
+      isInlineXBRL: number;
+      primaryDocument: string;
+      primaryDocDescription: string;
+    }>;
+    files: Array<{
+      name: string;
+      filingCount: number;
+      filingFrom: string;
+      filingTo: string;
+    }>;
+  };
+}
+
 // Create MCP server with SEC capabilities
 const createServer = () => {
   const server = new McpServer({
@@ -324,30 +359,88 @@ const createServer = () => {
         .describe('公司 CIK 编号（10 位数字，如 0000320193）'),
 
       recent: z.boolean().optional().describe('是否仅获取最近记录；默认 true'),
-    },
-    async ({ cik, recent = true }) => {
-      const url = `/submissions/CIK${cik.padStart(10, '0')}.json`;
-      const data = await makeSecRequest(url);
 
-      if (!data) {
+      /** 分页参数 */
+      page: z.number().min(1).optional().describe('页码，从 1 开始'),
+      pageSize: z.number().min(1).max(100).optional().describe('每页记录数，默认 20，最大 100'),
+    },
+    async ({ cik, recent = true, page = 1, pageSize = 20 }) => {
+      try {
+        const paddedCik = cik.padStart(10, '0');
+        const url = `/submissions/CIK${paddedCik}.json`;
+        const data = await makeSecRequest<SecSubmissionResponse>(url);
+
+        if (!data) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '获取公司提交历史失败：未找到数据或请求失败',
+              },
+            ],
+          };
+        }
+
+        // 处理分页
+        const submissions = data.filings?.recent || [];
+        const total = submissions.length;
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        const pagedSubmissions = submissions.slice(start, end);
+
+        // 构建分页后的响应
+        const response = {
+          cik: data.cik,
+          entityType: data.entityType,
+          sic: data.sic,
+          sicDescription: data.sicDescription,
+          name: data.name,
+          tickers: data.tickers,
+          exchanges: data.exchanges,
+          filings: {
+            recent: pagedSubmissions,
+            files: data.filings?.files || [],
+          },
+          pagination: {
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize),
+          },
+        };
+
+        // 限制返回数据大小
+        const responseData = JSON.stringify(response, null, 2);
+        if (responseData.length > 50000) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '数据量过大，请使用分页参数或减小每页记录数',
+              },
+            ],
+          };
+        }
+
         return {
           content: [
             {
               type: 'text',
-              text: '获取公司提交历史失败',
+              text: responseData,
+            },
+          ],
+        };
+      } catch (error) {
+        console.error('获取公司提交历史时发生错误:', error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `获取公司提交历史失败：${error instanceof Error ? error.message : '未知错误'}`,
             },
           ],
         };
       }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      };
     }
   );
 
