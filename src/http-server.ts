@@ -1,6 +1,20 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { ServerManager } from './servers/server-manager.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+interface Tool {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties: Record<string, {
+      type: string;
+      description: string;
+    }>;
+    required: string[];
+  };
+}
 
 /**
  * HTTP 服务器
@@ -9,14 +23,14 @@ import { ServerManager } from './servers/server-manager.js';
  */
 export class HttpServer {
   private app: express.Application;
-  private server: express.Application;
-  private port: number;
   private serverManager: ServerManager;
+  private port: number;
+  private server: ReturnType<express.Application['listen']> | null = null;
 
-  constructor(serverManager: ServerManager, port: number = 3000) {
-    this.port = port;
+  constructor(serverManager: ServerManager, port: number = 4000) {
     this.app = express();
     this.serverManager = serverManager;
+    this.port = port;
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -37,7 +51,7 @@ export class HttpServer {
     this.app.get('/events', (req: Request, res: Response) => {
       const secServer = this.serverManager.getSecServer();
       if (!secServer) {
-        res.status(503).json({ error: 'SEC API MCP 服务器未启动' });
+        res.status(503).json({ error: 'SEC API MCP 服务器未运行' });
         return;
       }
 
@@ -52,60 +66,69 @@ export class HttpServer {
       res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
 
       // 监听资源更新事件
-      const resourceUpdateHandler = (event: any) => {
-        res.write(`data: ${JSON.stringify({ type: 'resource-update', ...event })}\n\n`);
-      };
+      secServer.on('resource-update', (event) => {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
 
       // 监听工具调用事件
-      const toolCallHandler = (event: any) => {
-        res.write(`data: ${JSON.stringify({ type: 'tool-call', ...event })}\n\n`);
-      };
+      secServer.on('tool-call', (event) => {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
 
       // 监听错误事件
-      const errorHandler = (event: any) => {
-        res.write(`data: ${JSON.stringify({ type: 'error', ...event })}\n\n`);
-      };
+      secServer.on('error', (event) => {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
 
-      // 添加事件监听器
-      secServer.on('resource-update', resourceUpdateHandler);
-      secServer.on('tool-call', toolCallHandler);
-      secServer.on('error', errorHandler);
-
-      // 客户端断开连接时清理事件监听器
+      // 处理客户端断开连接
       req.on('close', () => {
-        secServer.removeListener('resource-update', resourceUpdateHandler);
-        secServer.removeListener('tool-call', toolCallHandler);
-        secServer.removeListener('error', errorHandler);
+        secServer.removeAllListeners();
       });
     });
 
     // 健康检查端点
     this.app.get('/health', (req: Request, res: Response) => {
       const secServer = this.serverManager.getSecServer();
-      res.json({
-        status: secServer ? 'ok' : 'error',
-        message: secServer ? 'SEC API MCP 服务器运行中' : 'SEC API MCP 服务器未启动',
-      });
+      if (!secServer) {
+        res.status(503).json({ status: 'error', message: 'SEC API MCP 服务器未运行' });
+        return;
+      }
+      res.json({ status: 'ok', message: 'SEC API MCP 服务器运行正常' });
+    });
+
+    // 工具列表端点
+    this.app.get('/tools', (req: Request, res: Response) => {
+      const secServer = this.serverManager.getSecServer();
+      if (!secServer) {
+        res.status(503).json({ error: 'SEC API MCP 服务器未运行' });
+        return;
+      }
+
+      try {
+        const tools = secServer.getTools();
+        res.json(tools);
+      } catch (error) {
+        console.error('获取工具列表失败:', error);
+        res.status(500).json({ error: '获取工具列表失败' });
+      }
     });
   }
 
   /**
    * 启动 HTTP 服务器
    */
-  start(): void {
+  public start(): void {
     this.server = this.app.listen(this.port, () => {
-      console.log(`HTTP 服务器已启动，监听端口 ${this.port}`);
+      console.log(`HTTP 服务器监听端口 ${this.port}`);
     });
   }
 
   /**
    * 关闭 HTTP 服务器
    */
-  async shutdown(): Promise<void> {
+  public close(): void {
     if (this.server) {
-      await new Promise<void>((resolve) => {
-        this.server.close(() => resolve());
-      });
+      this.server.close();
     }
   }
 } 

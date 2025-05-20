@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { z } from 'zod';
 import fetch from 'node-fetch';
 import { EventEmitter } from 'events';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 /**
  * SEC API MCP 服务器
@@ -18,10 +19,170 @@ import { EventEmitter } from 'events';
  * - 需要设置 mail 头部（用于联系）
  */
 
+interface Tool {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties: Record<
+      string,
+      {
+        type: string;
+        description: string;
+      }
+    >;
+    required: string[];
+  };
+}
+
+interface ToolConfig {
+  name: string;
+  description: string;
+  inputSchema: Tool['inputSchema'];
+  handler: (params: any) => Promise<any>;
+}
+
 export class SecServer extends EventEmitter {
   private server: McpServer;
   private readonly mail: string;
   private readonly companyName: string;
+  private transports: Map<string, StdioServerTransport> = new Map();
+  private isRunning: boolean = false;
+
+  // 工具配置
+  private readonly tools: ToolConfig[] = [
+    {
+      name: 'get-submissions',
+      description:
+        '获取公司的提交历史记录。返回至少一年的提交记录或最近1000条记录（以较多者为准）。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cik: {
+            type: 'string',
+            description: '公司 CIK 编号（10位数字）',
+          },
+          recent: {
+            type: 'boolean',
+            description: '是否只获取最近的记录（至少一年或1000条记录）',
+          },
+        },
+        required: ['cik'],
+      },
+      handler: async ({ cik, recent = true }) => {
+        const paddedCik = cik.padStart(10, '0');
+        const response = await fetch(`https://data.sec.gov/submissions/CIK${paddedCik}.json`, {
+          headers: this.getHeaders(),
+        });
+        const data = await response.json();
+        this.emit('tool-call', { type: 'submissions', cik, data });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+        };
+      },
+    },
+    {
+      name: 'get-company-concept',
+      description:
+        '获取公司特定概念的 XBRL 数据。返回单个公司（CIK）和概念（分类标准和标签）的所有 XBRL 披露数据。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cik: {
+            type: 'string',
+            description: '公司 CIK 编号（10位数字）',
+          },
+          taxonomy: {
+            type: 'string',
+            description: '分类标准（如 us-gaap, ifrs-full, dei, srt）',
+          },
+          tag: {
+            type: 'string',
+            description: 'XBRL 标签（如 AccountsPayableCurrent, Assets, Revenue）',
+          },
+        },
+        required: ['cik', 'taxonomy', 'tag'],
+      },
+      handler: async ({ cik, taxonomy, tag }) => {
+        const paddedCik = cik.padStart(10, '0');
+        const response = await fetch(
+          `https://data.sec.gov/api/xbrl/companyconcept/CIK${paddedCik}/${taxonomy}/${tag}.json`,
+          { headers: this.getHeaders() }
+        );
+        const data = await response.json();
+        this.emit('tool-call', { type: 'company-concept', cik, taxonomy, tag, data });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+        };
+      },
+    },
+    {
+      name: 'get-company-facts',
+      description: '获取公司的所有标准化财务数据。返回单个 API 调用中公司的所有概念数据。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cik: {
+            type: 'string',
+            description: '公司 CIK 编号（10位数字）',
+          },
+        },
+        required: ['cik'],
+      },
+      handler: async ({ cik }) => {
+        const paddedCik = cik.padStart(10, '0');
+        const response = await fetch(
+          `https://data.sec.gov/api/xbrl/companyfacts/CIK${paddedCik}.json`,
+          { headers: this.getHeaders() }
+        );
+        const data = await response.json();
+        this.emit('tool-call', { type: 'company-facts', cik, data });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+        };
+      },
+    },
+    {
+      name: 'get-xbrl-frames',
+      description:
+        '获取特定概念和时期的 XBRL frames 数据。返回每个报告实体最近提交的最符合请求日历期间的一个事实。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          taxonomy: {
+            type: 'string',
+            description: '分类标准（如 us-gaap, ifrs-full, dei, srt）',
+          },
+          tag: {
+            type: 'string',
+            description: 'XBRL 标签（如 AccountsPayableCurrent, Assets, Revenue）',
+          },
+          unit: {
+            type: 'string',
+            description:
+              '单位（如 USD, USD-per-shares, pure）。注意：如果单位包含分子和分母，用"-per-"分隔',
+          },
+          period: {
+            type: 'string',
+            description:
+              '期间格式：CY####（年度数据，持续365天±30天），CY####Q#（季度数据，持续91天±30天），CY####Q#I（瞬时数据）',
+          },
+        },
+        required: ['taxonomy', 'tag', 'unit', 'period'],
+      },
+      handler: async ({ taxonomy, tag, unit, period }) => {
+        const response = await fetch(
+          `https://data.sec.gov/api/xbrl/frames/${taxonomy}/${tag}/${unit}/${period}.json`,
+          { headers: this.getHeaders() }
+        );
+        const data = await response.json();
+        this.emit('tool-call', { type: 'xbrl-frames', taxonomy, tag, unit, period, data });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+        };
+      },
+    },
+  ];
 
   constructor(config: { name: string; version: string; mail: string; companyName?: string }) {
     super();
@@ -41,7 +202,6 @@ export class SecServer extends EventEmitter {
 
   /**
    * 获取 SEC API 请求头
-   * @returns 包含必要头部的对象
    */
   private getHeaders(): Record<string, string> {
     return {
@@ -53,14 +213,9 @@ export class SecServer extends EventEmitter {
 
   /**
    * 设置资源路由
-   *
-   * 资源路由用于处理 GET 请求，返回特定资源的数据
-   * 格式：sec://{resource-type}/{cik}
    */
   private setupResources(): void {
     // 添加获取公司提交历史的资源
-    // URI 格式：sec://submissions/{cik}
-    // 示例：sec://submissions/0000320193 (Apple Inc.)
     this.server.resource(
       'company-submissions',
       new ResourceTemplate('sec://submissions/{cik}', { list: undefined }),
@@ -72,18 +227,9 @@ export class SecServer extends EventEmitter {
             headers: this.getHeaders(),
           });
           const data = await response.json();
-          this.emit('resource-update', {
-            type: 'submissions',
-            cik,
-            data,
-          });
+          this.emit('resource-update', { type: 'submissions', cik, data });
           return {
-            contents: [
-              {
-                uri: uri.href,
-                text: JSON.stringify(data, null, 2),
-              },
-            ],
+            contents: [{ uri: uri.href, text: JSON.stringify(data, null, 2) }],
           };
         } catch (error) {
           this.emit('error', {
@@ -105,8 +251,6 @@ export class SecServer extends EventEmitter {
     );
 
     // 添加获取公司 XBRL 数据的资源
-    // URI 格式：sec://xbrl/facts/{cik}
-    // 示例：sec://xbrl/facts/0000320193 (Apple Inc.)
     this.server.resource(
       'company-facts',
       new ResourceTemplate('sec://xbrl/facts/{cik}', { list: undefined }),
@@ -116,23 +260,12 @@ export class SecServer extends EventEmitter {
           const paddedCik = cik.padStart(10, '0');
           const response = await fetch(
             `https://data.sec.gov/api/xbrl/companyfacts/CIK${paddedCik}.json`,
-            {
-              headers: this.getHeaders(),
-            }
+            { headers: this.getHeaders() }
           );
           const data = await response.json();
-          this.emit('resource-update', {
-            type: 'facts',
-            cik,
-            data,
-          });
+          this.emit('resource-update', { type: 'facts', cik, data });
           return {
-            contents: [
-              {
-                uri: uri.href,
-                text: JSON.stringify(data, null, 2),
-              },
-            ],
+            contents: [{ uri: uri.href, text: JSON.stringify(data, null, 2) }],
           };
         } catch (error) {
           this.emit('error', {
@@ -156,170 +289,54 @@ export class SecServer extends EventEmitter {
 
   /**
    * 设置工具函数
-   *
-   * 工具函数用于处理特定的数据查询请求，可以接受多个参数
    */
   private setupTools(): void {
-    // 添加获取特定概念的 XBRL 数据的工具
-    // 参数：
-    // - cik: 公司 CIK 编号（10位数字）
-    // - taxonomy: 分类标准（如 us-gaap）
-    // - tag: XBRL 标签（如 AccountsPayableCurrent）
-    this.server.tool(
-      'get-company-concept',
-      {
-        description: '获取公司特定概念的 XBRL 数据',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            cik: {
-              type: 'string',
-              description: '公司 CIK 编号（10位数字）',
-            },
-            taxonomy: {
-              type: 'string',
-              description: '分类标准（如 us-gaap）',
-            },
-            tag: {
-              type: 'string',
-              description: 'XBRL 标签（如 AccountsPayableCurrent）',
-            },
-          },
-          required: ['cik', 'taxonomy', 'tag'],
+    for (const tool of this.tools) {
+      this.server.tool(
+        tool.name,
+        {
+          description: tool.description,
+          inputSchema: tool.inputSchema,
         },
-      },
-      async ({ cik, taxonomy, tag }) => {
-        try {
-          const paddedCik = cik.padStart(10, '0');
-          const response = await fetch(
-            `https://data.sec.gov/api/xbrl/companyconcept/CIK${paddedCik}/${taxonomy}/${tag}.json`,
-            {
-              headers: this.getHeaders(),
-            }
-          );
-          const data = await response.json();
-          this.emit('tool-call', {
-            type: 'company-concept',
-            cik,
-            taxonomy,
-            tag,
-            data,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(data, null, 2),
-              },
-            ],
-          };
-        } catch (error) {
-          this.emit('error', {
-            type: 'company-concept',
-            cik,
-            taxonomy,
-            tag,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Error fetching company concept: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
-            isError: true,
-          };
+        async params => {
+          try {
+            return await tool.handler(params);
+          } catch (error) {
+            this.emit('error', {
+              type: tool.name,
+              ...params,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Error in ${tool.name}: ${error instanceof Error ? error.message : String(error)}`,
+                },
+              ],
+              isError: true,
+            };
+          }
         }
-      }
-    );
-
-    // 添加获取 XBRL frames 数据的工具
-    // 参数：
-    // - taxonomy: 分类标准（如 us-gaap）
-    // - tag: XBRL 标签（如 AccountsPayableCurrent）
-    // - unit: 单位（如 USD）
-    // - period: 期间（如 CY2023Q1I）
-    this.server.tool(
-      'get-xbrl-frames',
-      {
-        description: '获取 XBRL frames 数据',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            taxonomy: {
-              type: 'string',
-              description: '分类标准（如 us-gaap）',
-            },
-            tag: {
-              type: 'string',
-              description: 'XBRL 标签（如 AccountsPayableCurrent）',
-            },
-            unit: {
-              type: 'string',
-              description: '单位（如 USD）',
-            },
-            period: {
-              type: 'string',
-              description: '期间（如 CY2023Q1I）',
-            },
-          },
-          required: ['taxonomy', 'tag', 'unit', 'period'],
-        },
-      },
-      async ({ taxonomy, tag, unit, period }) => {
-        try {
-          const response = await fetch(
-            `https://data.sec.gov/api/xbrl/frames/${taxonomy}/${tag}/${unit}/${period}.json`,
-            {
-              headers: this.getHeaders(),
-            }
-          );
-          const data = await response.json();
-          this.emit('tool-call', {
-            type: 'xbrl-frames',
-            taxonomy,
-            tag,
-            unit,
-            period,
-            data,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(data, null, 2),
-              },
-            ],
-          };
-        } catch (error) {
-          this.emit('error', {
-            type: 'xbrl-frames',
-            taxonomy,
-            tag,
-            unit,
-            period,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Error fetching XBRL frames: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
-    );
+      );
+    }
   }
 
   /**
    * 获取 MCP 服务器实例
-   * @returns McpServer 实例
    */
   getMcpServer(): McpServer {
     return this.server;
+  }
+
+  /**
+   * 获取工具列表
+   */
+  public getTools(): Tool[] {
+    return this.tools.map(({ name, description, inputSchema }) => ({
+      name,
+      description,
+      inputSchema,
+    }));
   }
 }

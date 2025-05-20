@@ -1,4 +1,21 @@
 import { EventSource } from 'eventsource';
+import fetch from 'node-fetch';
+
+/**
+ * 工具类型定义
+ */
+interface Tool {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties: Record<string, {
+      type: string;
+      description: string;
+    }>;
+    required: string[];
+  };
+}
 
 /**
  * 延迟函数
@@ -24,6 +41,29 @@ async function retry<T>(
 }
 
 /**
+ * 检查工具注册
+ */
+async function checkTools(): Promise<void> {
+  try {
+    const response = await fetch('http://localhost:4000/tools');
+    if (!response.ok) {
+      throw new Error(`获取工具列表失败: ${response.statusText}`);
+    }
+    const tools = await response.json() as Tool[];
+    console.log('\n已注册的工具列表:');
+    tools.forEach((tool) => {
+      console.log(`\n工具名称: ${tool.name}`);
+      console.log(`描述: ${tool.description}`);
+      console.log('输入参数:');
+      console.log(JSON.stringify(tool.inputSchema, null, 2));
+    });
+  } catch (error) {
+    console.error('检查工具注册失败:', error);
+    throw error;
+  }
+}
+
+/**
  * 测试客户端
  * 
  * 用于测试 SEC API MCP 服务器的功能
@@ -33,13 +73,16 @@ async function main() {
   console.log('等待服务器启动...');
   await delay(5000);
 
+  // 检查工具注册
+  await retry(checkTools);
+
   // 使用重试机制连接 SSE
   await retry(async () => {
     const eventSource = new EventSource('http://localhost:4000/events');
 
     // 监听连接事件
     eventSource.onopen = () => {
-      console.log('已连接到 SSE 服务器');
+      console.log('\n已连接到 SSE 服务器');
     };
 
     // 监听消息事件
@@ -80,7 +123,7 @@ async function main() {
 
     // 等待一段时间后关闭连接
     setTimeout(() => {
-      console.log('测试完成，关闭连接');
+      console.log('\n测试完成，关闭连接');
       eventSource.close();
       process.exit(0);
     }, 30000); // 30 秒后关闭
