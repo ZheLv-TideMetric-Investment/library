@@ -7,6 +7,10 @@
         "NODE_ENV": "development",
         "DEBUG": "true",
         "PORT": "4000"
+      },
+      "transport": {
+        "type": "sse",
+        "url": "http://localhost:4000/sse"
       }
     }
   }
