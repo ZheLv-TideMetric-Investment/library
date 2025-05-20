@@ -511,6 +511,19 @@ const createServer = () => {
 // Handle SSE connection
 app.get('/sse', async (req, res) => {
   try {
+    // 设置 SSE 所需的 HTTP 头部
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // 设置超时时间
+    res.setTimeout(0); // 禁用超时
+    
+    // 发送初始连接成功消息
+    res.write('event: connected\ndata: {"status": "connected"}\n\n');
+
     // Create SSE transport
     const transport = new SSEServerTransport('/messages', res);
 
@@ -519,6 +532,7 @@ app.get('/sse', async (req, res) => {
 
     // Clean up on close
     res.on('close', () => {
+      console.log(`SSE connection closed for session ${transport.sessionId}`);
       transports.delete(transport.sessionId);
     });
 

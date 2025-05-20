@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "dev": "tsx watch src/index.ts",
     "test": "tsx src/test-client.ts",
-    "pm2:start": "pm2 start ecosystem.config.cjs",
-    "pm2:stop": "pm2 stop ecosystem.config.cjs",
-    "pm2:restart": "pm2 restart ecosystem.config.cjs",
-    "pm2:delete": "pm2 delete ecosystem.config.cjs",
+    "pm2:start": "chmod +x scripts/start.sh && ./scripts/start.sh",
+    "pm2:stop": "pm2 stop sec-mcp-server",
+    "pm2:restart": "pm2 restart sec-mcp-server",
+    "pm2:delete": "pm2 delete sec-mcp-server",
     "pm2:logs": "pm2 logs sec-mcp-server",
     "pm2:monit": "pm2 monit sec-mcp-server",
     "inspect": "npx @modelcontextprotocol/inspector --config mcp.json --server sec-server"
@@ -31,6 +31,7 @@
     "eslint": "^9.27.0",
     "pm2": "^5.3.1",
     "prettier": "^3.5.3",
+    "tsc-alias": "^1.8.8",
     "tsx": "^4.7.1",
     "typescript": "^5.0.0"
   }
