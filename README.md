@@ -1,184 +1,108 @@
-# SEC API MCP Server
+# SEC MCP Server
 
-基于 MCP (Model Context Protocol) 的 SEC EDGAR 数据库访问服务器，提供实时数据推送功能。
+这是一个基于 MCP（Model Context Protocol）的 SEC API 服务端项目，提供访问 SEC EDGAR 数据库的接口，包括公司提交历史查询、公司 XBRL 数据查询、特定概念的 XBRL 数据查询和 XBRL frames 数据查询。
 
 ## 功能特点
 
-- 基于 MCP TypeScript SDK 构建
-- 支持 SEC EDGAR 数据库访问
-- 提供 Server-Sent Events (SSE) 实时数据推送
-- 支持 PM2 进程管理
-- 完整的 TypeScript 类型支持
+- 支持多种 SEC API 工具和资源
+- 实时数据更新
+- 详细的错误处理和日志记录
+- 支持 SSE（Server-Sent Events）实时事件推送
 
-## 主要功能
+## 安装步骤
 
-1. 公司提交历史查询
-   - URI 格式：`sec://submissions/{cik}`
-   - 示例：`sec://submissions/0000320193` (Apple Inc.)
+1. 克隆项目：
+   ```bash
+   git clone <repository-url>
+   cd sec-mcp-server
+   ```
 
-2. 公司 XBRL 数据查询
-   - URI 格式：`sec://xbrl/facts/{cik}`
-   - 示例：`sec://xbrl/facts/0000320193` (Apple Inc.)
+2. 安装依赖：
+   ```bash
+   npm install
+   ```
 
-3. 特定概念的 XBRL 数据查询
-   - 工具名称：`get-company-concept`
-   - 参数：`cik`, `taxonomy`, `tag`
+3. 配置环境变量：
+   - 创建 `.env` 文件，并添加以下内容：
+     ```
+     SEC_API_MAIL=your-email@example.com
+     SEC_API_COMPANY=Your Company Name
+     PORT=4000
+     ```
 
-4. XBRL frames 数据查询
-   - 工具名称：`get-xbrl-frames`
-   - 参数：`taxonomy`, `tag`, `unit`, `period`
+4. 编译项目：
+   ```bash
+   npm run build
+   ```
 
-## 环境要求
+5. 启动服务：
+   ```bash
+   npm start
+   ```
 
-- Node.js >= 18
-- TypeScript >= 5.0
-- PM2 (用于生产环境)
+## 使用方法
 
-## 安装
+### 1. 启动服务
+服务默认监听 4000 端口，可通过环境变量 `PORT` 修改。
 
-```bash
-# 克隆仓库
-git clone [repository-url]
-cd sec-mcp-server
+### 2. 访问 API 工具和资源
+服务提供以下工具和资源：
 
-# 安装依赖
-npm install
+#### 工具（Tools）
+- **`get-company-concept`**  
+  获取公司特定概念的 XBRL 数据。  
+  参数：  
+  - `cik`：公司 CIK 编号（10位数字，如 0000320193）  
+  - `taxonomy`：分类标准（如 us-gaap, ifrs-full, dei, srt）  
+  - `tag`：XBRL 标签（如 AccountsPayableCurrent, Assets, Revenue）  
+  - `units`：单位（如 USD, USD-per-shares, pure）  
+  - `startDate`：开始日期（YYYY-MM-DD）  
+  - `endDate`：结束日期（YYYY-MM-DD）
 
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，设置必要的环境变量
-```
+- **`get-xbrl-frames`**  
+  获取特定概念和时期的 XBRL frames 数据。  
+  参数：  
+  - `taxonomy`：分类标准（如 us-gaap, ifrs-full, dei, srt）  
+  - `tag`：XBRL 标签（如 AccountsPayableCurrent, Assets, Revenue）  
+  - `unit`：单位（如 USD, USD-per-shares, pure）  
+  - `year`：年份（如 2023）  
+  - `quarter`：季度（1-4）
 
-## 环境变量
+- **`get-company-facts`**  
+  获取公司的所有标准化财务数据。  
+  参数：  
+  - `cik`：公司 CIK 编号（10位数字，如 0000320193）
 
-在 `.env` 文件中配置以下环境变量：
+- **`get-company-submissions`**  
+  获取公司的提交历史记录。  
+  参数：  
+  - `cik`：公司 CIK 编号（10位数字，如 0000320193）  
+  - `recent`：是否只获取最近的记录（至少一年或1000条记录）
 
-```env
-# SEC API 配置
-SEC_API_MAIL=your-email@example.com
-SEC_API_COMPANY=Your Company Name
+#### 资源（Resources）
+- **`company-submissions`**  
+  获取公司的提交历史记录。  
+  参数：  
+  - `cik`：公司 CIK 编号（10位数字，如 0000320193）
 
-# 服务器配置
-PORT=4000
-NODE_ENV=development
-```
+- **`company-facts`**  
+  获取公司的所有标准化财务数据。  
+  参数：  
+  - `cik`：公司 CIK 编号（10位数字，如 0000320193）
 
-## 开发
+### 3. 实时事件推送
+服务支持 SSE（Server-Sent Events）实时事件推送，可通过 `/sse` 端点订阅事件。
 
-```bash
-# 启动开发服务器
-npm run dev
+## 环境变量配置
+- `SEC_API_MAIL`：SEC API 联系邮箱
+- `SEC_API_COMPANY`：SEC API 公司名称
+- `PORT`：服务监听端口（默认 4000）
 
-# 运行测试客户端
-npm run test
-```
+## 错误处理
+所有 API 请求都会返回详细的错误信息，便于排查问题。
 
-## 生产部署
-
-使用 PM2 进行进程管理：
-
-```bash
-# 启动服务器
-npm run pm2:start
-
-# 查看日志
-npm run pm2:logs
-
-# 监控服务器状态
-npm run pm2:monit
-
-# 停止服务器
-npm run pm2:stop
-
-# 重启服务器
-npm run pm2:restart
-
-# 删除服务器
-npm run pm2:delete
-```
-
-## API 端点
-
-### SSE 端点
-
-- URL: `http://localhost:4000/events`
-- 方法: GET
-- 事件类型:
-  - `connected`: 连接成功
-  - `resource-update`: 资源更新
-  - `tool-call`: 工具调用
-  - `error`: 错误信息
-
-### 健康检查
-
-- URL: `http://localhost:4000/health`
-- 方法: GET
-- 响应:
-  ```json
-  {
-    "status": "ok",
-    "message": "SEC API MCP 服务器运行中"
-  }
-  ```
-
-## 测试客户端
-
-测试客户端示例代码：
-
-```typescript
-import { EventSource } from 'eventsource';
-
-const eventSource = new EventSource('http://localhost:4000/events');
-
-eventSource.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('收到事件:', data);
-};
-
-eventSource.onerror = (error) => {
-  console.error('SSE 连接错误:', error);
-  eventSource.close();
-};
-```
-
-## 项目结构
-
-```
-sec-mcp-server/
-├── src/
-│   ├── servers/
-│   │   ├── sec-server.ts    # SEC API 服务器实现
-│   │   └── server-manager.ts # 服务器管理器
-│   ├── http-server.ts       # HTTP 服务器实现
-│   ├── test-client.ts       # 测试客户端
-│   └── index.ts             # 应用入口
-├── logs/                    # PM2 日志目录
-├── ecosystem.config.cjs     # PM2 配置
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## 注意事项
-
-1. SEC API 访问限制：
-   - 每个 IP 每秒最多 10 个请求
-   - 需要设置 User-Agent 头部
-   - 需要设置 mail 头部（用于联系）
-
-2. 错误处理：
-   - 所有错误都会通过 SSE 连接发送
-   - 错误信息包含类型、相关参数和错误详情
-
-3. 性能考虑：
-   - 使用 PM2 进行进程管理
-   - 配置了内存限制和自动重启
-   - 实现了错误重试机制
+## 贡献指南
+欢迎提交 Issue 和 Pull Request，共同改进项目。
 
 ## 许可证
-
 MIT
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request。
