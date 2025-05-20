@@ -1,5 +1,5 @@
 /** @type {import('pm2').Config} */
-export default {
+module.exports = {
   apps: [
     {
       name: 'sec-mcp-server',

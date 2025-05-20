@@ -153,7 +153,7 @@ sec-mcp-server/
 │   ├── test-client.ts       # 测试客户端
 │   └── index.ts             # 应用入口
 ├── logs/                    # PM2 日志目录
-├── ecosystem.config.js      # PM2 配置
+├── ecosystem.config.cjs     # PM2 配置
 ├── package.json
 ├── tsconfig.json
 └── README.md
