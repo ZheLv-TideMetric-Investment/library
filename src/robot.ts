@@ -42,6 +42,7 @@ app.post('/robot', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to call Bailian API' });
   }
+  return res.json({ received: body });
 });
 
 const PORT = process.env.ROBOT_PORT || 4001;
