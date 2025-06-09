@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "sec-friendly-api": {
+      "command": "node",
+      "args": [
+        "/path/to/sec-friendly-api/dist/index.js"
+      ],
+      "env": {
+        "SEC_API_MAIL": "your-email@company.com",
+        "SEC_API_COMPANY": "Your Company Name"
+      }
+    }
+  }
+} 
