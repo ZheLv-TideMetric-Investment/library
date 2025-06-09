@@ -1,36 +1,36 @@
 #!/bin/bash
 
-# 确保日志目录存在
-mkdir -p logs
+# SEC Friendly API PM2 启动脚本
 
-# 清理旧的构建文件
-rm -rf dist
+echo "🚀 启动 SEC Friendly API MCP Server..."
 
-# 构建项目
-echo "Building project..."
+# 确保项目已构建
 npm run build
 
-# 检查构建是否成功
-if [ ! -f "dist/index.js" ]; then
-    echo "Error: Build failed - dist/index.js not found"
-    exit 1
-fi
+# 删除已存在的 PM2 进程（如果有）
+pm2 delete sec-friendly-api 2>/dev/null || true
 
-# 停止并删除已存在的进程
-echo "Stopping existing process..."
-pm2 delete sec-mcp-server 2>/dev/null || true
+# 启动新的 PM2 进程
+pm2 start dist/index.js \
+  --name "sec-friendly-api" \
+  --interpreter node \
+  --watch dist \
+  --ignore-watch="node_modules" \
+  --log-date-format="YYYY-MM-DD HH:mm:ss Z" \
+  --merge-logs \
+  --output logs/out.log \
+  --error logs/error.log
 
-# 等待进程完全停止
-sleep 2
+# 显示状态
+pm2 status
 
-# 启动应用
-echo "Starting application..."
-pm2 start ecosystem.config.cjs --env production
-
-# 检查启动是否成功
-if [ $? -eq 0 ]; then
-    echo "Application started successfully"
-else
-    echo "Error: Failed to start application"
-    exit 1
-fi 
+echo "✅ SEC Friendly API 已启动!"
+echo ""
+echo "📊 查看状态: npm run pm2:monit"
+echo "📜 查看日志: npm run pm2:logs"
+echo "🔄 重启服务: npm run pm2:restart"
+echo "⏹️  停止服务: npm run pm2:stop"
+echo "🗑️  删除服务: npm run pm2:delete"
+echo ""
+echo "🌐 健康检查: http://localhost:4000/health"
+echo "🔗 SSE 端点: http://localhost:4000/sse" 
