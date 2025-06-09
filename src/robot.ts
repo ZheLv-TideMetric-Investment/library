@@ -1,5 +1,5 @@
 import express from 'express';
-import { callBailianAPI } from './bailian';
+import { callBailianAPI } from './bailian.js';
 
 import { config } from 'dotenv';
 
