@@ -1,5 +1,6 @@
-import express from 'express';
+import express, { text } from 'express';
 import { callBailianAPI } from './bailian.js';
+import axios from 'axios';
 
 import { config } from 'dotenv';
 
@@ -33,16 +34,30 @@ interface RobotRequestBody {
 app.post('/robot', async (req, res) => {
   const token = req.headers.token;
   if (token?.toString().toLowerCase() !== 'tide') {
-    return res.status(403).json({ error: 'Invalid token' });
+    res.status(403).json({ error: 'Invalid token' });
+    return;
   }
   const body = req.body as RobotRequestBody;
+  let text = '';
   try {
     const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
-    const text = result.output.text;
-    return res.json({ received: body, bailianResponse: text });
+    text = result.output.text;
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to call Bailian API' });
+    text = error instanceof Error ? error.message : 'Unknown error';
   }
+  // 发送结果到 sessionWebhook
+  await axios.post(body.sessionWebhook, {
+    msgtype: 'markdown',
+    markdown: {
+      title: 'tide Response',
+      text: `@${body.atUsers.map(user => user.dingtalkId).join(', ')} \n > ${text} \n`,
+    },
+    at: {
+      atMobiles: body.atUsers.map(user => user.dingtalkId),
+      isAtAll: false,
+    },
+  });
+  res.status(200).json({ received: body, bailianResponse: text });
 });
 
 const PORT = process.env.ROBOT_PORT || 4001;
