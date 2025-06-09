@@ -9,12 +9,16 @@ const API_KEY = process.env.BAILIAN_SK;
 
 // 调用百炼 API 的函数
 async function callBailianAPI(appId: string, userMessage: string) {
-  const BAILIAN_API_URL = `https://dashscope.aliyuncs.com/api/v1/applications/${appId}/invoke`;
+  const BAILIAN_API_URL = `https://dashscope.aliyuncs.com/api/v1/apps/${appId}/completion`;
   try {
     const response = await axios.post(
       BAILIAN_API_URL,
       {
-        prompt: userMessage,
+        input: {
+          prompt: userMessage,
+        },
+        parameters: {},
+        debug: {},
       },
       {
         headers: {
