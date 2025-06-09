@@ -38,9 +38,9 @@ app.post('/robot', async (req, res) => {
   const body = req.body as RobotRequestBody;
   try {
     const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
-    res.json({ received: body, bailianResponse: result });
+    return res.json({ received: body, bailianResponse: result });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to call Bailian API' });
+    return res.status(500).json({ error: 'Failed to call Bailian API' });
   }
 });
 
