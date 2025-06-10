@@ -40,8 +40,12 @@ app.post('/robot', async (req, res) => {
   const body = req.body as RobotRequestBody;
   let text = '';
   try {
-    const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
-    text = result.output.text;
+    if(body.text.content === '活着没') {
+      text = '活着呢';
+    } else {
+      const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
+      text = result.output.text;
+    }
   } catch (error) {
     text = error instanceof Error ? error.message : 'Unknown error';
   }
@@ -49,13 +53,9 @@ app.post('/robot', async (req, res) => {
   await axios.post(body.sessionWebhook, {
     msgtype: 'markdown',
     markdown: {
-      title: 'tide Response',
-      text: `@${body.atUsers.map(user => user.dingtalkId).join(', ')} \n > ${text} \n`,
-    },
-    at: {
-      atMobiles: body.atUsers.map(user => user.dingtalkId),
-      isAtAll: false,
-    },
+      title: 'tide ulrta',
+      text: `${text}`,
+    }
   });
   res.status(200).json({ received: body, bailianResponse: text });
 });
