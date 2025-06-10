@@ -138,15 +138,15 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
 async function saveConversationLog(message: string, response: string): Promise<void> {
   try {
     // 创建 logs 目录（如果不存在）
-    const logsDir = path.join(process.cwd(), 'logs');
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir);
+    const jinaData = path.join(process.cwd(), '..', 'jina');
+    if (!fs.existsSync(jinaData)) {
+      fs.mkdirSync(jinaData);
     }
 
     // 获取当前北京时间
     const now = dayjs().tz('Asia/Shanghai');
     const fileName = `${now.format('YYYY-MM-DD')}.json`;
-    const filePath = path.join(logsDir, fileName);
+    const filePath = path.join(jinaData, fileName);
 
     // 创建日志对象
     const log: ConversationLog = {
