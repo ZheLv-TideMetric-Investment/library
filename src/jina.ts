@@ -2,8 +2,8 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
 
 // 配置 dayjs
 dayjs.extend(utc);
@@ -83,9 +83,9 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
    - 标明数据的局限性、假设条件和潜在偏差，避免以偏概全。  
 
 3. **结构化输出**  
-   - 先用 2–3 句话给出“关键结论”，再以分点形式展开证据、推理步骤、数据表或公式。  
-   - 在合适位置插入清晰的绝对日期（例：2025-06-10），避免“最近、昨天”这类易混淆表述。  
-   - 每条事实后附紧随其后的简洁引用 (作者/机构, 年份)。如无法找到可信来源，应明确说明“尚未找到权威证据”。  
+   - 先用 2–3 句话给出"关键结论"，再以分点形式展开证据、推理步骤、数据表或公式。  
+   - 在合适位置插入清晰的绝对日期（例：2025-06-10），避免"最近、昨天"这类易混淆表述。  
+   - 每条事实后附紧随其后的简洁引用 (作者/机构, 年份)。如无法找到可信来源，应明确说明"尚未找到权威证据"。  
 
 4. **精准而简洁的沟通**  
    - 仅在信息不足或用户目标含糊时才简要提问，其余情况直接执行。  
