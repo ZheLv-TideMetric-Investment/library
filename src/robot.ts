@@ -1,5 +1,6 @@
 import express, { text } from 'express';
 import { callBailianAPI } from './bailian.js';
+import { callJinaAPI } from './jina.js';
 import axios from 'axios';
 
 import { config } from 'dotenv';
@@ -58,6 +59,36 @@ app.post('/robot', async (req, res) => {
     }
   });
   res.status(200).json({ received: body, bailianResponse: text });
+});
+
+// 添加 Jina AI 接口
+app.post('/jina', async (req, res) => {
+  const token = req.headers.token;
+  if (token?.toString().toLowerCase() !== 'tide') {
+    res.status(403).json({ error: 'Invalid token' });
+    return;
+  }
+
+  const body = req.body as RobotRequestBody;
+  let text = '';
+
+  try {
+    const result = await callJinaAPI(body.text.content);
+    text = result.content;
+  } catch (error) {
+    text = error instanceof Error ? error.message : '调用 Jina AI 时发生错误';
+  }
+
+  // 发送结果到 sessionWebhook
+  await axios.post(body.sessionWebhook, {
+    msgtype: 'markdown',
+    markdown: {
+      title: 'tide jina',
+      text: `${text}`,
+    }
+  });
+
+  res.status(200).json({ received: body, jinaResponse: text });
 });
 
 const PORT = process.env.ROBOT_PORT || 4001;
