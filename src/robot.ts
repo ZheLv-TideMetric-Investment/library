@@ -40,8 +40,12 @@ app.post('/robot', async (req, res) => {
   const body = req.body as RobotRequestBody;
   let text = '';
   try {
-    const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
-    text = result.output.text;
+    if(body.text.content === '活着没') {
+      text = '活着呢';
+    } else {
+      const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
+      text = result.output.text;
+    }
   } catch (error) {
     text = error instanceof Error ? error.message : 'Unknown error';
   }
