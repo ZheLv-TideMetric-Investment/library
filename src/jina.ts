@@ -27,15 +27,14 @@ interface Annotation {
   url_citation: UrlCitation;
 }
 
-interface Delta {
-  content: string;
-  type: string;
-  annotations: Annotation[];
-}
-
 interface Choice {
   index: number;
-  delta: Delta;
+  message: {
+    role: string;
+    content: string;
+    type: string;
+    annotations: Annotation[];
+  };
   logprobs: null;
   finish_reason: string;
 }
@@ -66,7 +65,6 @@ interface ConversationLog {
 }
 
 export async function callJinaAPI(message: string): Promise<{ content: string }> {
-
   try {
     const messages = [
       { role: 'system', content: `
@@ -98,7 +96,7 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
 ⚠️ **一次性对话说明**  
 这是一次即时任务，收到指令后请立刻开始检索与分析，无需再次确认或等待输入。完成后直接返回结果。
 `.trim() 
-},
+      },
       { role: 'user', content: message }
     ];
 
@@ -121,7 +119,7 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
       }
     );
 
-    const aiResponse = response.data.choices[0]?.delta?.content || '抱歉，我没有得到有效的回答';
+    const aiResponse = response.data.choices[0]?.message?.content || '抱歉，我没有得到有效的回答';
 
     // 保存对话记录
     await saveConversationLog(message, response.data);
@@ -152,7 +150,7 @@ async function saveConversationLog(message: string, response: JinaRawResponse): 
     const log: ConversationLog = {
       timestamp: now.format('YYYY-MM-DD HH:mm:ss'),
       message,
-      response: response
+      response
     };
 
     // 读取现有日志（如果存在）
