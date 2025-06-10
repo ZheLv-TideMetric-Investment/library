@@ -53,13 +53,9 @@ app.post('/robot', async (req, res) => {
   await axios.post(body.sessionWebhook, {
     msgtype: 'markdown',
     markdown: {
-      title: 'tide Response',
-      text: `@${body.atUsers.map(user => user.dingtalkId).join(', ')} \n > ${text} \n`,
-    },
-    at: {
-      atMobiles: body.atUsers.map(user => user.dingtalkId),
-      isAtAll: false,
-    },
+      title: 'tide ulrta',
+      text: `${text}`,
+    }
   });
   res.status(200).json({ received: body, bailianResponse: text });
 });
