@@ -10,6 +10,9 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.setDefault('Asia/Shanghai');
 
+// 每百万 token 的费用（美元）
+const COST_PER_MILLION_TOKENS = 0.05;
+
 interface Message {
   role: string;
   content: string;
@@ -62,9 +65,22 @@ interface ConversationLog {
   timestamp: string;
   message: string;
   response: JinaRawResponse;
+  cost: number;
 }
 
-export async function callJinaAPI(message: string): Promise<{ content: string }> {
+interface JinaResponse {
+  content: string;
+  cost: number;
+  usage: Usage;
+}
+
+// 计算费用（美元）
+function calculateCost(usage: Usage): number {
+  const totalTokens = usage.total_tokens;
+  return (totalTokens / 1_000_000) * COST_PER_MILLION_TOKENS;
+}
+
+export async function callJinaAPI(message: string): Promise<JinaResponse> {
   try {
     const messages = [
       { role: 'system', content: `
@@ -120,11 +136,16 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
     );
 
     const aiResponse = response.data.choices[0]?.message?.content || '抱歉，我没有得到有效的回答';
+    const cost = calculateCost(response.data.usage);
 
     // 保存对话记录
-    await saveConversationLog(message, response.data);
+    await saveConversationLog(message, response.data, cost);
 
-    return { content: aiResponse };
+    return { 
+      content: aiResponse,
+      cost,
+      usage: response.data.usage
+    };
   } catch (error) {
     if (axios.isAxiosError(error)) {
       throw new Error(`Jina API 请求失败: ${error.message}`);
@@ -133,7 +154,7 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
   }
 }
 
-async function saveConversationLog(message: string, response: JinaRawResponse): Promise<void> {
+async function saveConversationLog(message: string, response: JinaRawResponse, cost: number): Promise<void> {
   try {
     // 创建 logs 目录（如果不存在）
     const jinaData = path.join(process.cwd(), '..', 'jina');
@@ -150,7 +171,8 @@ async function saveConversationLog(message: string, response: JinaRawResponse): 
     const log: ConversationLog = {
       timestamp: now.format('YYYY-MM-DD HH:mm:ss'),
       message,
-      response
+      response,
+      cost
     };
 
     // 读取现有日志（如果存在）

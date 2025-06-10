@@ -55,7 +55,7 @@ app.post('/robot', async (req, res) => {
     msgtype: 'markdown',
     markdown: {
       title: 'tide ulrta',
-      text: `${text}`,
+      text: `@${body.senderNick} \n${text}`,
     }
   });
   res.status(200).json({ received: body, bailianResponse: text });
@@ -77,7 +77,7 @@ app.post('/jina', async (req, res) => {
       text = '活着呢';
     } else {
       const result = await callJinaAPI(body.text.content);
-      text = result.content;
+      text = `\n\n${result.content}\n\n本次回答费用：${result.cost.toFixed(2)}美元`;
     }
   } catch (error) {
     text = error instanceof Error ? error.message : '调用 Jina AI 时发生错误';
@@ -88,7 +88,7 @@ app.post('/jina', async (req, res) => {
     msgtype: 'markdown',
     markdown: {
       title: 'tide jina',
-      text: `${text}`,
+      text: `@${body.senderNick} \n${text}`,
     }
   });
 
