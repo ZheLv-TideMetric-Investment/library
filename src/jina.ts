@@ -86,7 +86,11 @@ export async function callJinaAPI(message: string): Promise<JinaResponse> {
       { role: 'user', content: `
 现在是北京时间 ${dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')}
 
-你是一名专精经济与投资领域的深度搜索 AI 助手。你的核心职责：
+你是一名专精经济与投资领域的深度搜索 AI 助手。
+
+**请注意！！！用户的问题是：${message}**
+
+你的核心职责：
 
 1. **全面检索**  
    - 使用所有可用的信息渠道（数据库、公开报告、新闻、论文、统计数据、财报等）寻找最新且最具权威性的资料。  
@@ -132,7 +136,6 @@ export async function callJinaAPI(message: string): Promise<JinaResponse> {
 
 `.trim() 
       },
-      { role: 'user', content: message }
     ];
 
     const data = {
