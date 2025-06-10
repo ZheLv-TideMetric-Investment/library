@@ -62,7 +62,7 @@ interface JinaRawResponse {
 interface ConversationLog {
   timestamp: string;
   message: string;
-  response: string;
+  response: JinaRawResponse;
 }
 
 export async function callJinaAPI(message: string): Promise<{ content: string }> {
@@ -124,7 +124,7 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
     const aiResponse = response.data.choices[0]?.delta?.content || '抱歉，我没有得到有效的回答';
 
     // 保存对话记录
-    await saveConversationLog(message, aiResponse);
+    await saveConversationLog(message, response.data);
 
     return { content: aiResponse };
   } catch (error) {
@@ -135,7 +135,7 @@ export async function callJinaAPI(message: string): Promise<{ content: string }>
   }
 }
 
-async function saveConversationLog(message: string, response: string): Promise<void> {
+async function saveConversationLog(message: string, response: JinaRawResponse): Promise<void> {
   try {
     // 创建 logs 目录（如果不存在）
     const jinaData = path.join(process.cwd(), '..', 'jina');
@@ -152,7 +152,7 @@ async function saveConversationLog(message: string, response: string): Promise<v
     const log: ConversationLog = {
       timestamp: now.format('YYYY-MM-DD HH:mm:ss'),
       message,
-      response
+      response: response
     };
 
     // 读取现有日志（如果存在）
