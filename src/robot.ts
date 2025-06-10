@@ -41,7 +41,7 @@ app.post('/robot', async (req, res) => {
   const body = req.body as RobotRequestBody;
   let text = '';
   try {
-    if(body.text.content?.includes('活着没')) {
+    if(body.text.content?.trim() === '活着没') {
       text = '活着呢';
     } else {
       const result = await callBailianAPI(process.env.BAILIAN_APP_ID as string, body.text.content);
@@ -73,7 +73,7 @@ app.post('/jina', async (req, res) => {
   let text = '';
 
   try {
-    if(body.text.content?.includes('活着没')) {
+    if(body.text.content?.trim() === '活着没') {
       text = '活着呢';
     } else {
       const result = await callJinaAPI(body.text.content);
