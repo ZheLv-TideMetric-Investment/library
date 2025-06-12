@@ -80,6 +80,51 @@ function calculateCost(usage: Usage): number {
   return (totalTokens / 1_000_000) * COST_PER_MILLION_TOKENS;
 }
 
+
+export async function callJinaAPIPure(message: string): Promise<JinaResponse> {
+  try {
+    const messages = [
+      { role: 'user', content: message?.trim() }
+    ];
+
+    const data = {
+      "model": "jina-deepsearch-v2",
+      "messages": messages,
+      "reasoning_effort": "high",
+      "max_attempts": 3,
+      "no_direct_answer": false
+    };
+
+    const response = await axios.post<JinaRawResponse>(
+      'https://deepsearch.jina.ai/v1/chat/completions',
+      data,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.JINA_API_KEY}`
+        }
+      }
+    );
+
+    const aiResponse = response.data.choices[0]?.message?.content || '抱歉，我没有得到有效的回答';
+    const cost = calculateCost(response.data.usage);
+
+    // 保存对话记录
+    await saveConversationLog(message, response.data, cost);
+
+    return { 
+      content: aiResponse,
+      cost,
+      usage: response.data.usage
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(`Jina API 请求失败: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
 export async function callJinaAPI(message: string): Promise<JinaResponse> {
   try {
     const messages = [

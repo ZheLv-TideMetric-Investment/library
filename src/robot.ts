@@ -1,6 +1,6 @@
 import express, { text } from 'express';
 import { callBailianAPI } from './bailian.js';
-import { callJinaAPI } from './jina.js';
+import { callJinaAPI, callJinaAPIPure } from './jina.js';
 import axios from 'axios';
 
 import { config } from 'dotenv';
@@ -77,6 +77,39 @@ app.post('/jina', async (req, res) => {
       text = '活着呢';
     } else {
       const result = await callJinaAPI(body.text.content);
+      text = `\n\n${result.content}\n\n本次回答费用：${result.cost.toFixed(2)}美元`;
+    }
+  } catch (error) {
+    text = error instanceof Error ? error.message : '调用 Jina AI 时发生错误';
+  }
+
+  // 发送结果到 sessionWebhook
+  await axios.post(body.sessionWebhook, {
+    msgtype: 'markdown',
+    markdown: {
+      title: 'tide jina',
+      text: `@${body.senderNick} \n${text}`,
+    }
+  });
+
+  res.status(200).json({ received: body, jinaResponse: text });
+});
+
+app.post('/jina-pure', async (req, res) => {
+  const token = req.headers.token;
+  if (token?.toString().toLowerCase() !== 'tide') {
+    res.status(403).json({ error: 'Invalid token' });
+    return;
+  }
+
+  const body = req.body as RobotRequestBody;
+  let text = '';
+
+  try {
+    if(body.text.content?.trim() === '活着没') {
+      text = '活着呢';
+    } else {
+      const result = await callJinaAPIPure(body.text.content);
       text = `\n\n${result.content}\n\n本次回答费用：${result.cost.toFixed(2)}美元`;
     }
   } catch (error) {
